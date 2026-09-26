@@ -9,7 +9,7 @@ use neutrino::create_initial_neutrino_groups;
 use neutrino::list_secrets;
 use neutrino::secret_store::{PutSecretRequest, SecretStore};
 use neutrino::vault::store_from_valence;
-use neutrino::ValenceSealedStore;
+use neutrino::{clear_master_key_cache, ValenceSealedStore};
 use tracing::field::{Field, Visit};
 use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
 use tracing_subscriber::Registry;
@@ -94,6 +94,7 @@ fn prepare_store_env() {
             std::env::set_var("VALENCE_OWNERSHIP_UNIFIED_FETCH", "0");
         }
     }
+    clear_master_key_cache();
 }
 
 async fn test_valence() -> Valence {
@@ -227,6 +228,7 @@ async fn mock_without_secrets_skips_store() {
     unsafe {
         std::env::remove_var("NEUTRINO_MASTER_KEY");
     }
+    clear_master_key_cache();
     let cfg = resolve_oauth_config_from_neutrino(&store, "http://example.test", true)
         .await
         .expect("mock resolve must skip Neutrino I/O even without master key")
@@ -243,7 +245,7 @@ async fn mock_without_secrets_skips_store() {
     unsafe {
         std::env::set_var("NEUTRINO_MASTER_KEY", test_master_key_hex());
     }
-    let listed = list_secrets(store.valence.as_ref())
+    let listed = list_secrets(store.valence.as_ref(), None)
         .await
         .expect("list_secrets");
     assert!(
@@ -282,6 +284,7 @@ async fn store_failure_is_err_without_secret_leak() {
     unsafe {
         std::env::remove_var("NEUTRINO_MASTER_KEY");
     }
+    clear_master_key_cache();
     let err = resolve_oauth_config_from_neutrino(&store, "http://127.0.0.1:3000", true)
         .await
         .expect_err("expected store failure");
@@ -320,7 +323,7 @@ async fn seeds_google_secret_from_env_and_returns_config_happy() {
     assert!(cfg.github_client_secret.is_none());
     assert!(!cfg.use_mock_provider);
 
-    let listed = list_secrets(store.valence.as_ref())
+    let listed = list_secrets(store.valence.as_ref(), None)
         .await
         .expect("list_secrets");
     assert!(
@@ -354,7 +357,7 @@ async fn seeds_github_secret_from_env_and_returns_config_happy() {
     assert!(cfg.google_client_id.is_none());
     assert!(cfg.google_client_secret.is_none());
 
-    let listed = list_secrets(store.valence.as_ref())
+    let listed = list_secrets(store.valence.as_ref(), None)
         .await
         .expect("list_secrets");
     assert!(
@@ -411,7 +414,7 @@ async fn seed_from_env_false_ignores_env_secret_returns_none_sad() {
         "seed_from_env=false must not pull env secret into config"
     );
 
-    let listed = list_secrets(store.valence.as_ref())
+    let listed = list_secrets(store.valence.as_ref(), None)
         .await
         .expect("list_secrets");
     assert!(
@@ -511,7 +514,7 @@ async fn seed_from_env_does_not_rotate_existing_vault_secret_deny() {
         "existing sealed row must win over seed_from_env plaintext"
     );
 
-    let listed = list_secrets(store.valence.as_ref())
+    let listed = list_secrets(store.valence.as_ref(), None)
         .await
         .expect("list_secrets");
     let row = listed
@@ -684,6 +687,7 @@ async fn get_failure_is_err_without_secret_leak_sad() {
     unsafe {
         std::env::remove_var("NEUTRINO_MASTER_KEY");
     }
+    clear_master_key_cache();
 
     let err = resolve_oauth_config_from_neutrino(&store, "http://127.0.0.1:3000", false)
         .await
@@ -926,7 +930,7 @@ async fn mock_with_client_secret_env_takes_vault_path_happy() {
     assert!(cfg.use_mock_provider);
     assert_eq!(cfg.google_client_secret.as_deref(), Some(secret));
 
-    let listed = list_secrets(store.valence.as_ref())
+    let listed = list_secrets(store.valence.as_ref(), None)
         .await
         .expect("list_secrets");
     assert!(

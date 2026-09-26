@@ -106,7 +106,7 @@ async fn resolve_oauth_config_from_neutrino_inner(
         )));
     }
 
-    let listed = list_secrets(store.valence.as_ref())
+    let listed = list_secrets(store.valence.as_ref(), None)
         .await
         .map_err(|source| ResolveOAuthConfigError::List {
             source: source.into(),
@@ -278,7 +278,6 @@ mod tests {
             kind: kind.to_string(),
             current_version: version,
             created_at: Utc.timestamp_opt(created_secs, 0).unwrap(),
-            owner_subject_json: "{}".to_string(),
         }
     }
 
